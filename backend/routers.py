@@ -10,6 +10,7 @@ import auth
 import database as db
 import schemas
 from config import AUTHORITY_PASSWORD, UPLOAD_DIR
+from detection import detect_image
 
 router = APIRouter(prefix="/api")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -103,7 +104,7 @@ def me(user: dict = Depends(current_user)):
 # --- Uploads ----------------------------------------------------------------
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=schemas.UploadOut)
 async def upload_image(file: UploadFile, user: dict = Depends(current_user)):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Only JPEG, PNG, WEBP and GIF images are allowed")
@@ -116,7 +117,8 @@ async def upload_image(file: UploadFile, user: dict = Depends(current_user)):
     name = f"{uuid.uuid4().hex}.{ext}"
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     (UPLOAD_DIR / name).write_bytes(data)
-    return {"url": f"/api/files/{name}"}
+    detection = detect_image(data)
+    return schemas.UploadOut(url=f"/api/files/{name}", detection=detection)
 
 
 # --- Reports ----------------------------------------------------------------

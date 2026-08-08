@@ -39,6 +39,19 @@ export interface ApiReport {
   readonly events: readonly ApiReportEvent[];
 }
 
+export interface ApiDetection {
+  readonly category: string;
+  readonly label: string;
+  readonly confidence: number;
+  readonly severity: string;
+  readonly is_issue: boolean;
+}
+
+export interface ApiUploadResult {
+  readonly url: string;
+  readonly detection: ApiDetection | null;
+}
+
 export interface AuthResponse {
   readonly token: string;
   readonly user: ApiUser;
@@ -139,7 +152,7 @@ export const api = {
   uploadImage: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return request<{ url: string }>('/upload', { method: 'POST', formData });
+    return request<ApiUploadResult>('/upload', { method: 'POST', formData });
   },
 
   createReport: (payload: ReportPayload) =>

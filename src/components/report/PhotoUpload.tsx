@@ -1,18 +1,25 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon';
-import { api, ApiError } from '../../api/client';
+import { api, ApiError, type ApiDetection } from '../../api/client';
+import { severityClasses, formatConfidence } from '../../utils/severity';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
 interface PhotoUploadProps {
   readonly imageUrl: string | null;
   readonly onPhotoChange: (imageUrl: string | null, fileName: string | null) => void;
+  readonly onDetection?: (detection: ApiDetection | null) => void;
 }
 
-export const PhotoUpload: React.FC<PhotoUploadProps> = ({ imageUrl, onPhotoChange }) => {
+export const PhotoUpload: React.FC<PhotoUploadProps> = ({ imageUrl, onPhotoChange, onDetection }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [detection, setDetection] = useState<ApiDetection | null>(null);
+
+  useEffect(() => {
+    onDetection?.(detection);
+  }, [detection, onDetection]);
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
@@ -29,6 +36,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ imageUrl, onPhotoChang
     try {
       const result = await api.uploadImage(file);
       onPhotoChange(result.url, file.name);
+      setDetection(result.detection);
     } catch (error) {
       setUploadError(error instanceof ApiError ? error.message : 'Upload failed');
     } finally {
@@ -62,7 +70,10 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ imageUrl, onPhotoChang
             </button>
             <button
               type="button"
-              onClick={() => onPhotoChange(null, null)}
+              onClick={() => {
+                setDetection(null);
+                onPhotoChange(null, null);
+              }}
               className="bg-surface/90 backdrop-blur-sm px-3 py-1.5 rounded-md shadow-sm font-label-sm text-label-sm text-error hover:bg-error-container transition-colors flex items-center gap-1"
             >
               <Icon name="close" className="text-[14px]" />
@@ -107,6 +118,22 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ imageUrl, onPhotoChang
           />
         </label>
       )}
+
+      {detection ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 bg-surface-container-low rounded-lg px-4 py-3 border border-outline-variant/40">
+          <Icon name="scan" className="text-primary text-[18px] shrink-0" />
+          <p className="font-label-sm text-label-sm text-on-surface flex-1">
+            <span className="text-on-surface-variant">AI detected: </span>
+            <span className="font-bold">{detection.label}</span>
+          </p>
+          <span className="font-label-sm text-label-sm text-on-surface-variant">
+            {formatConfidence(detection.confidence)} confidence
+          </span>
+          <span className={`px-2.5 py-1 rounded-lg font-label-sm text-label-sm ${severityClasses(detection.severity)}`}>
+            {detection.severity}
+          </span>
+        </div>
+      ) : null}
 
       {uploadError ? (
         <div className="mt-3 flex items-center gap-2 bg-error-container rounded-lg px-4 py-3">

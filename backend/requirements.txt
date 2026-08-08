@@ -4,3 +4,5 @@ python-multipart
 PyJWT
 email-validator
 python-dotenv
+ultralytics
+pillow

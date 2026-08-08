@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 DB_PATH = BASE_DIR / "civiclens.db"
+MODEL_PATH = BASE_DIR.parent / "YOLOModel" / "best.pt"
 
 load_dotenv(BASE_DIR / ".env")
 

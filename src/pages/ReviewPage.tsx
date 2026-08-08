@@ -98,7 +98,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = () => {
 
       <main className="flex-1 overflow-y-auto px-margin-mobile py-6 space-y-6 pb-40">
         <ImagePreview imageUrl={draft.imageUrl} />
-        <AiAssessment />
+        <AiAssessment detection={draft.detection} />
         <DuplicateAlert />
 
         <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/30 p-gutter">

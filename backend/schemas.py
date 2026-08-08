@@ -28,6 +28,19 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class DetectionOut(BaseModel):
+    category: str
+    label: str
+    confidence: float
+    severity: str
+    is_issue: bool
+
+
+class UploadOut(BaseModel):
+    url: str
+    detection: Optional[DetectionOut] = None
+
+
 class UserOut(BaseModel):
     id: int
     email: str

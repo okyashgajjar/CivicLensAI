@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { TopAppBar } from '../components/TopAppBar';
 import { PhotoUpload } from '../components/report/PhotoUpload';
@@ -8,6 +9,7 @@ import { CategorySection } from '../components/report/CategorySection';
 import { useDuplicateScan } from '../hooks/useDuplicateScan';
 import { useReportForm } from '../hooks/useReportForm';
 import type { ReportDraft } from '../types/report';
+import type { ApiDetection } from '../api/client';
 
 interface ReportPageProps {
   readonly className?: string;
@@ -17,6 +19,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
   const navigate = useNavigate();
   const { form, categoryLabel, setAddress, selectCategory, setDescription, setPhoto, setCoordinates } =
     useReportForm('road');
+  const [detection, setDetection] = useState<ApiDetection | null>(null);
   const ready =
     Boolean(form.photoUrl) && form.description.trim().length > 0 && form.address.trim().length > 0;
   const { progress, complete } = useDuplicateScan(ready);
@@ -35,6 +38,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
       lat: form.lat,
       lng: form.lng,
       imageUrl: form.photoUrl,
+      detection,
     };
     navigate('/report/review', { state: { draft } });
   };
@@ -57,7 +61,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
           </p>
         </div>
 
-        <PhotoUpload imageUrl={form.photoUrl} onPhotoChange={setPhoto} />
+        <PhotoUpload imageUrl={form.photoUrl} onPhotoChange={setPhoto} onDetection={setDetection} />
         <DuplicateDetectionPanel ready={ready} progress={progress} complete={complete} />
         <LocationSection
           address={form.address}
