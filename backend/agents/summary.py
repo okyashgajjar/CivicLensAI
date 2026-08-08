@@ -19,9 +19,11 @@ logger = logging.getLogger("civiclens.agents.summary")
 def _fallback(state: PipelineState) -> SummaryResult:
     classification = state.get("classification")
     duplication = state.get("duplication")
+    severity_result = state.get("severity")
     routing = state.get("routing")
+    notify = state.get("notify")
     category = classification.label if classification is not None else state.get("category", "")
-    severity = classification.severity if classification is not None else "MEDIUM"
+    severity = severity_result.severity if severity_result is not None else "MEDIUM"
     location = state.get("location", "") or "(unknown location)"
 
     key_points = [
@@ -33,13 +35,21 @@ def _fallback(state: PipelineState) -> SummaryResult:
             f"Duplicates: {'yes' if duplication.is_duplicate else 'no'} "
             f"({len(duplication.matches)} open issue(s) nearby)."
         )
+    if severity_result is not None:
+        key_points.append(
+            f"Escalation: +{severity_result.escalation_pct}% "
+            f"({severity_result.duplicate_count} duplicate(s), {severity_result.history_count} historical)."
+        )
     if routing is not None:
         key_points.append(f"Routed to: {routing.department} ({routing.subdepartment or 'general'}).")
+    if notify is not None:
+        key_points.append(f"Dispatched to: {notify.office} ({notify.zone} zone).")
 
     summary = (
         f"A {category} issue (severity {severity}) was reported at {location}. "
         f"{'It matches an open issue already tracked by the city.' if duplication and duplication.is_duplicate else 'No duplicate was found.'} "
         f"Recommended routing is {routing.department if routing else 'the city intake cell'}."
+        + (f" The report has been dispatched to {notify.office}." if notify is not None else "")
     )
     recommended_action = (
         "Merge with the existing open issue to avoid duplication."

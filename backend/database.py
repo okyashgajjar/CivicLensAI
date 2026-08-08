@@ -329,6 +329,65 @@ def find_duplicate_issues(lat: float, lng: float, radius_m: float = 25.0) -> lis
     return results
 
 
+def lookup_history(lat: float, lng: float, radius_m: float = 200.0) -> dict:
+    """Issue history near a coordinate, including resolved and citizen reports.
+
+    Used by the severity agent to judge whether this is a recurring problem
+    worth escalating. Returns counts for total / open / resolved / recent-30d
+    issues plus the average severity of what was found.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    with get_connection() as conn:
+        incidents = conn.execute("SELECT * FROM incidents").fetchall()
+        reports = conn.execute("SELECT * FROM reports WHERE lat IS NOT NULL AND lng IS NOT NULL").fetchall()
+
+    total = open_count = resolved_count = recent_count = 0
+    severity_rank = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+    rank_sum = 0
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+
+    def _to_dt(value: str | None):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    def _consider(item: dict, ts_field: str) -> None:
+        nonlocal total, open_count, resolved_count, recent_count, rank_sum
+        if item.get("lat") is None or item.get("lng") is None:
+            return
+        if _distance_m(lat, lng, item["lat"], item["lng"]) > radius_m:
+            return
+        total += 1
+        status = (item.get("status") or "").lower()
+        if status in ("resolved", "closed"):
+            resolved_count += 1
+        else:
+            open_count += 1
+        severity = (item.get("severity") or "MEDIUM").upper()
+        rank_sum += severity_rank.get(severity, 1)
+        ts = _to_dt(item.get(ts_field))
+        if ts is not None and ts >= cutoff:
+            recent_count += 1
+
+    for row in incidents:
+        _consider(dict(row), "updated_at")
+    for row in reports:
+        _consider(dict(row), "created_at")
+
+    return {
+        "total": total,
+        "open": open_count,
+        "resolved": resolved_count,
+        "recent_30d": recent_count,
+        "avg_severity_rank": round(rank_sum / total, 2) if total else 0,
+        "radius_m": radius_m,
+    }
+
+
 def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Approximate great-circle distance in meters (Haversine)."""
     import math

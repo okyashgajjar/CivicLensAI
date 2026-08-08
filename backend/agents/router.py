@@ -37,7 +37,10 @@ def run(state: PipelineState) -> RouterResult:
     location = state.get("location", "")
     severity = ""
     classification = state.get("classification")
-    if classification is not None:
+    severity_result = state.get("severity")
+    if severity_result is not None and severity_result.severity:
+        severity = severity_result.severity
+    elif classification is not None:
         severity = classification.severity
     candidate = tools.lookup_department.invoke(
         {"category": category, "location": location}

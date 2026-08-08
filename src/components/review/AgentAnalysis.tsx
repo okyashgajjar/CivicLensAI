@@ -31,7 +31,7 @@ export const AgentAnalysis: React.FC<AgentAnalysisProps> = ({ loading, analysis,
           <div className="flex-1">
             <p className="font-title-md text-title-md text-on-surface">Agents analyzing...</p>
             <p className="font-label-sm text-label-sm text-on-surface-variant">
-              Classification → Duplication → Routing → Summary
+              Classify → Duplicate → Severity → Route → Notify → Summary
             </p>
           </div>
           <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -54,7 +54,7 @@ export const AgentAnalysis: React.FC<AgentAnalysisProps> = ({ loading, analysis,
 
   if (!analysis) return null;
 
-  const { routing, summary, duplication } = analysis;
+  const { routing, summary, duplication, severity, notify } = analysis;
 
   return (
     <section className="rounded-xl bg-surface p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.05)] border border-surface-container-highest flex flex-col gap-5">
@@ -71,6 +71,27 @@ export const AgentAnalysis: React.FC<AgentAnalysisProps> = ({ loading, analysis,
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-low p-4 border border-outline-variant/40">
           <div className="flex items-center gap-3 min-w-0">
+            <Icon name="speed" className="text-error text-[22px] shrink-0" />
+            <div className="min-w-0">
+              <p className="font-label-sm text-label-sm text-on-surface-variant">Final Severity</p>
+              <p className="font-body-md text-body-md text-on-surface">
+                {severity.severity}
+                {severity.escalation_pct > 0 ? (
+                  <span className="text-error font-bold ml-2">+{severity.escalation_pct}% escalated</span>
+                ) : null}
+              </p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{severity.reasoning}</p>
+            </div>
+          </div>
+          <span
+            className={`px-3 py-1.5 rounded-lg font-label-sm text-label-sm shrink-0 ${priorityClasses(severity.severity)}`}
+          >
+            {severity.severity}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-low p-4 border border-outline-variant/40">
+          <div className="flex items-center gap-3 min-w-0">
             <Icon name="account_tree" className="text-primary text-[22px] shrink-0" />
             <div className="min-w-0">
               <p className="font-label-sm text-label-sm text-on-surface-variant">Routed Department</p>
@@ -85,6 +106,19 @@ export const AgentAnalysis: React.FC<AgentAnalysisProps> = ({ loading, analysis,
           >
             {routing.priority}
           </span>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-lg bg-success-container p-4 border border-success-container">
+          <Icon name="campaign" className="text-success text-[22px] shrink-0" />
+          <div className="min-w-0">
+            <p className="font-label-sm text-label-sm text-on-success-container">Dispatched to Authorities</p>
+            <p className="font-body-md text-body-md text-on-success-container truncate">
+              {notify.office} · {notify.zone} zone
+            </p>
+            <p className="font-label-sm text-label-sm text-on-success-container/80 truncate">
+              {notify.medium.join(' · ')} · {notify.authority}
+            </p>
+          </div>
         </div>
 
         {duplication.is_duplicate ? (

@@ -132,6 +132,51 @@ def lookup_department(category: str, location: str) -> str:
 
 
 @tool
+def lookup_traffic_history(lat: float, lng: float, category: str) -> str:
+    """Check how often similar civic issues have been reported near a location.
+
+    Returns JSON with the number of total / open / resolved issues in the last
+    30 days within ~200m. Used by the severity agent to decide how much to
+    escalate a report (recurring problems rank higher).
+    """
+    try:
+        history = db.lookup_history(lat, lng)
+    except Exception:
+        logger.exception("traffic history lookup failed")
+        history = {"total": 0, "open": 0, "resolved": 0, "recent_30d": 0, "avg_severity_rank": 0}
+    history["category"] = category
+    history["same_kind_total"] = history.get("total", 0)
+    return json.dumps(history, ensure_ascii=False)
+
+
+# Municipal zone offices used to route dispatches to the nearest authority.
+ZONE_OFFICES = [
+    {"zone": "Central", "office": "AMC Central Zone Office", "lat": 23.0225, "lng": 72.5714},
+    {"zone": "North", "office": "AMC North Zone Office", "lat": 23.0782, "lng": 72.6189},
+    {"zone": "South", "office": "AMC South Zone Office", "lat": 22.9583, "lng": 72.5732},
+    {"zone": "East", "office": "AMC East Zone Office", "lat": 23.0246, "lng": 72.6183},
+    {"zone": "West", "office": "AMC West Zone Office", "lat": 23.0517, "lng": 72.5292},
+    {"zone": "New West", "office": "AMC New West Zone Office", "lat": 23.0937, "lng": 72.5064},
+]
+
+
+@tool
+def lookup_nearby_authorities(lat: float, lng: float) -> str:
+    """Find the municipal zone offices nearest to a coordinate.
+
+    Returns JSON with each office, its zone, and the straight-line distance in
+    km, sorted closest first. Used by the notify agent to dispatch a report to
+    the authority responsible for that part of the city.
+    """
+    offices = []
+    for z in ZONE_OFFICES:
+        distance_km = round(db.haversine_distance_m(lat, lng, z["lat"], z["lng"]) / 1000.0, 2)
+        offices.append({"zone": z["zone"], "office": z["office"], "distance_km": distance_km})
+    offices.sort(key=lambda o: o["distance_km"])
+    return json.dumps(offices, ensure_ascii=False)
+
+
+@tool
 def get_session_context(session_id: str) -> str:
     """Read previously completed analysis steps for a report session.
 

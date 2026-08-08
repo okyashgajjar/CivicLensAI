@@ -50,7 +50,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
       detection,
       duplicates: [...matches],
     };
-    navigate('/report/review', { state: { draft } });
+    navigate('/report/agents', { state: { draft } });
   };
 
   return (

@@ -58,6 +58,38 @@ class RouterResult(BaseModel):
     reasoning: str = Field(description="Why this department and priority were chosen")
 
 
+class SeverityResult(BaseModel):
+    """Output of the severity agent (escalation from duplicates + history)."""
+
+    severity: str = Field(description="Final severity after escalation: LOW, MEDIUM, HIGH, or CRITICAL")
+    base_severity: str = Field(description="Severity from image classification before escalation")
+    escalation_pct: int = Field(description="Percent the severity was raised due to duplicates and history")
+    duplicate_count: int = Field(description="Number of same-kind open issues at the location")
+    history_count: int = Field(description="Number of related issues reported nearby over time")
+    reasoning: str = Field(description="Why this severity and escalation were assigned")
+
+
+class NearbyAuthority(BaseModel):
+    """A municipal office near the reported location."""
+
+    authority: str
+    office: str
+    zone: str
+    distance_km: float | None = None
+
+
+class NotifyResult(BaseModel):
+    """Output of the notify agent (dispatch to nearby authorities)."""
+
+    authority: str = Field(description="Primary authority notified")
+    office: str = Field(description="Zone office to which the report was dispatched")
+    zone: str = Field(description="Municipal zone containing the location")
+    medium: list[str] = Field(default_factory=lambda: ["Email", "SMS"])
+    status: str = Field(default="notified", description="Dispatch status")
+    notified_at: str = Field(default="", description="ISO timestamp of dispatch")
+    nearby: list[NearbyAuthority] = Field(default_factory=list)
+
+
 class SummaryResult(BaseModel):
     """Output of the summary agent (authority brief)."""
 
@@ -80,5 +112,7 @@ class PipelineState(TypedDict, total=False):
     classification: ClassificationResult
     duplication: DuplicationResult
     routing: RouterResult
+    severity: SeverityResult
+    notify: NotifyResult
     summary: SummaryResult
     errors: list[str]

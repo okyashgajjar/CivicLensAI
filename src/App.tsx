@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { ReportPage } from './pages/ReportPage';
+import { AgentProcessingPage } from './pages/AgentProcessingPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
@@ -38,6 +39,14 @@ export const App: React.FC<AppProps> = () => {
                 element={
                   <RequireAuth>
                     <ReportPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/report/agents"
+                element={
+                  <RequireAuth>
+                    <AgentProcessingPage />
                   </RequireAuth>
                 }
               />

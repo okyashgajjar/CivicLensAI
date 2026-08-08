@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ImagePreview } from '../components/review/ImagePreview';
 import { AiAssessment } from '../components/review/AiAssessment';
@@ -10,6 +10,7 @@ import { ReviewActionBar } from '../components/review/ReviewActionBar';
 import { useReports, toActiveReport } from '../context/ReportsContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { api, ApiError, type ApiAgentAnalysis } from '../api/client';
+import { useAgentPipeline } from '../hooks/useAgentPipeline';
 import type { ReportDraft } from '../types/report';
 
 interface ReviewPageProps {
@@ -19,44 +20,20 @@ interface ReviewPageProps {
 export const ReviewPage: React.FC<ReviewPageProps> = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const draft = (location.state as { draft?: ReportDraft } | null)?.draft;
+  const state = location.state as { draft?: ReportDraft; analysis?: ApiAgentAnalysis } | null;
+  const draft = state?.draft;
+  const passedAnalysis = state?.analysis ?? null;
   const { addReport } = useReports();
   const { addNotification } = useNotifications();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [agentAnalysis, setAgentAnalysis] = useState<ApiAgentAnalysis | null>(null);
-  const [agentLoading, setAgentLoading] = useState(false);
-  const [agentError, setAgentError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!draft) return;
-    let cancelled = false;
-    setAgentLoading(true);
-    setAgentError(null);
-    api
-      .analyzeReport({
-        lat: draft.lat ?? 23.0225,
-        lng: draft.lng ?? 72.5714,
-        category: draft.category,
-        location: draft.address,
-        description: draft.description,
-        imageUrl: draft.imageUrl,
-      })
-      .then((result) => {
-        if (cancelled) return;
-        setAgentAnalysis(result);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setAgentError(error instanceof ApiError ? error.message : 'Could not run agent analysis');
-      })
-      .finally(() => {
-        if (!cancelled) setAgentLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [draft]);
+  // When the user arrived from the agents page, the analysis is already
+  // complete; otherwise run the pipeline live (e.g. direct navigation).
+  const pipeline = useAgentPipeline(passedAnalysis ? null : draft);
+  const agentAnalysis = passedAnalysis ?? pipeline.analysis;
+  const agentLoading = pipeline.status === 'starting' || pipeline.status === 'running';
+  const agentError = passedAnalysis ? null : pipeline.error;
 
   const handleConfirm = async () => {
     if (!draft || submitting) return;

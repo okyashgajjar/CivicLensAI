@@ -124,14 +124,59 @@ export interface ApiAgentSummary {
   readonly recommended_action: string;
 }
 
+export interface ApiAgentSeverity {
+  readonly severity: string;
+  readonly base_severity: string;
+  readonly escalation_pct: number;
+  readonly duplicate_count: number;
+  readonly history_count: number;
+  readonly reasoning: string;
+}
+
+export interface ApiNearbyAuthority {
+  readonly authority: string;
+  readonly office: string;
+  readonly zone: string;
+  readonly distance_km: number | null;
+}
+
+export interface ApiAgentNotify {
+  readonly authority: string;
+  readonly office: string;
+  readonly zone: string;
+  readonly medium: readonly string[];
+  readonly status: string;
+  readonly notified_at: string;
+  readonly nearby: readonly ApiNearbyAuthority[];
+}
+
 export interface ApiAgentAnalysis {
   readonly session_id: string;
   readonly image_url: string | null;
   readonly classification: ApiAgentClassification;
   readonly duplication: ApiAgentDuplication;
+  readonly severity: ApiAgentSeverity;
   readonly routing: ApiAgentRouting;
+  readonly notify: ApiAgentNotify;
   readonly summary: ApiAgentSummary;
   readonly errors: readonly string[];
+}
+
+export interface ApiAnalyzeAccepted {
+  readonly session_id: string;
+  readonly status: string;
+  readonly image_url: string | null;
+}
+
+export interface ApiAgentStep {
+  readonly step: string;
+  readonly payload: Record<string, unknown>;
+}
+
+export interface ApiAgentSession {
+  readonly session_id: string;
+  readonly status: string;
+  readonly steps: readonly ApiAgentStep[];
 }
 
 export interface AuthResponse {
@@ -276,13 +321,10 @@ export const api = {
     formData.append('location', payload.location);
     formData.append('description', payload.description);
     if (payload.imageUrl) formData.append('image_url', payload.imageUrl);
-    return request<ApiAgentAnalysis>('/reports/analyze', { method: 'POST', formData });
+    return request<ApiAnalyzeAccepted>('/reports/analyze', { method: 'POST', formData });
   },
 
-  getAgentSession: (sessionId: string) =>
-    request<{ readonly session_id: string; readonly steps: readonly { readonly step: string; readonly payload: object }[] }>(
-      `/reports/analyze/${sessionId}`,
-    ),
+  getAgentSession: (sessionId: string) => request<ApiAgentSession>(`/reports/analyze/${sessionId}`),
 
   createReport: (payload: ReportPayload) =>
     request<ApiReport>('/reports', { method: 'POST', body: payload }),
