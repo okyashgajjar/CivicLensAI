@@ -32,3 +32,6 @@ backend/uploads
 *.sln
 *.sw?
 *.stitch
+
+# Tooling caches
+.mycli-fts
