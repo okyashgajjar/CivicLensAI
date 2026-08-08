@@ -1,9 +1,10 @@
 """API routes for CivicLens."""
 
 import json
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 import auth
@@ -11,6 +12,13 @@ import database as db
 import schemas
 from config import AUTHORITY_PASSWORD, UPLOAD_DIR
 from detection import detect_image
+
+import agents
+from agents.graph import run_pipeline
+from agents.session_store import get_session_store
+from agents.state import PipelineState
+
+logger = logging.getLogger("civiclens.api")
 
 router = APIRouter(prefix="/api")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -124,6 +132,111 @@ async def upload_image(file: UploadFile, user: dict = Depends(current_user)):
 # --- Reports ----------------------------------------------------------------
 
 
+@router.get("/reports/duplicates", response_model=schemas.DuplicateScanOut)
+def scan_duplicates(lat: float, lng: float, user: dict = Depends(current_user)):
+    matches = db.find_duplicate_issues(lat, lng)
+    return schemas.DuplicateScanOut(matches=matches)
+
+
+def _resolve_image_bytes(image_url: str | None) -> bytes | None:
+    """Read an uploaded image from disk given its public URL."""
+    if not image_url:
+        return None
+    name = image_url.rsplit("/", 1)[-1]
+    path = UPLOAD_DIR / name
+    if not path.is_file():
+        return None
+    return path.read_bytes()
+
+
+def _save_upload(file: UploadFile) -> str:
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, WEBP and GIF images are allowed")
+    data = file.file.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image exceeds the 5 MB limit")
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "img"
+    if ext not in {"jpg", "jpeg", "png", "webp", "gif"}:
+        ext = "img"
+    name = f"{uuid.uuid4().hex}.{ext}"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / name).write_bytes(data)
+    return f"/api/files/{name}"
+
+
+def _run_pipeline_task(state: PipelineState) -> None:
+    """Run the LangGraph pipeline in the background and record its outcome.
+
+    Each agent persists its step as it completes, so callers can poll
+    ``GET /reports/analyze/{id}`` and watch the steps fill in live.
+    """
+    session_id = state["session_id"]
+    try:
+        result = run_pipeline(state)
+        status = "failed" if result.get("errors") else "completed"
+    except Exception:
+        logger.exception("background agent pipeline failed for session %s", session_id)
+        status = "failed"
+    get_session_store().set_status(session_id, status)
+
+
+@router.post("/reports/analyze", response_model=schemas.AnalyzeAccepted)
+def analyze_report(
+    lat: float = Form(...),
+    lng: float = Form(...),
+    category: str = Form(...),
+    location: str = Form(""),
+    description: str = Form(""),
+    image_url: str = Form(""),
+    session_id: str = Form(""),
+    file: UploadFile | None = File(default=None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    user: dict = Depends(current_user),
+):
+    """Queue the agent pipeline for a report and return immediately.
+
+    The pipeline runs in the background; steps are persisted to the session
+    store as they complete, so clients poll for live progress.
+    """
+    if file is not None:
+        image_url = _save_upload(file)
+    image_bytes = _resolve_image_bytes(image_url) if image_url else None
+
+    session = session_id.strip() or uuid.uuid4().hex
+    state: PipelineState = {
+        "session_id": session,
+        "lat": lat,
+        "lng": lng,
+        "location": location,
+        "category": category,
+        "description": description,
+        "image_url": image_url or None,
+        "image_bytes": image_bytes,
+        "errors": [],
+    }
+
+    store = get_session_store()
+    store.set_status(session, "running")
+    background_tasks.add_task(_run_pipeline_task, state)
+
+    return schemas.AnalyzeAccepted(session_id=session, status="running", image_url=image_url or None)
+
+
+@router.get("/reports/analyze/{session_id}", response_model=schemas.AgentSessionOut)
+def get_agent_session(session_id: str, user: dict = Depends(current_user)):
+    """Retrieve the stored agent steps (and lifecycle status) for a session."""
+    store = get_session_store()
+    steps = store.load_session(session_id)
+    status = store.get_status(session_id)
+    if status == "unknown" and not steps:
+        raise HTTPException(status_code=404, detail="Agent session not found")
+    return schemas.AgentSessionOut(
+        session_id=session_id,
+        status=status,
+        steps=[schemas.SessionStepOut(**s) for s in steps],
+    )
+
+
 @router.post("/reports", response_model=schemas.ReportOut)
 def create_report(req: schemas.ReportIn, user: dict = Depends(current_user)):
     if user["role"] == "authority":
@@ -136,6 +249,30 @@ def create_report(req: schemas.ReportIn, user: dict = Depends(current_user)):
 def list_reports(user: dict = Depends(current_user)):
     rows = db.list_reports(None if user["role"] == "authority" else user["email"])
     return [_report_out(r) for r in rows]
+
+
+@router.get("/reports/queue", response_model=list[schemas.QueueItemOut])
+def list_queue(user: dict = Depends(current_user)):
+    """Authority-only merged queue of incidents and citizen-submitted reports."""
+    if user["role"] != "authority":
+        raise HTTPException(status_code=403, detail="Authorities only")
+    return db.list_queue_items()
+
+
+@router.patch("/reports/queue/{source}/{item_id}", response_model=schemas.QueueItemOut)
+def update_queue_status(
+    source: str,
+    item_id: str,
+    payload: schemas.IncidentStatusUpdate,
+    user: dict = Depends(current_user),
+):
+    """Advance an incident or a citizen report in the authority queue."""
+    if user["role"] != "authority":
+        raise HTTPException(status_code=403, detail="Authorities only")
+    row = db.update_queue_item_status(source, item_id, payload.status)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Queue item not found")
+    return row
 
 
 # --- Incidents --------------------------------------------------------------

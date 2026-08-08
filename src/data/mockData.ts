@@ -55,6 +55,7 @@ export interface AiAssessment {
 
 export interface QueueItem {
   readonly id: string;
+  readonly source?: 'incident' | 'report';
   readonly type: string;
   readonly title: string;
   readonly address: string;

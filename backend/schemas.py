@@ -41,6 +41,22 @@ class UploadOut(BaseModel):
     detection: Optional[DetectionOut] = None
 
 
+class DuplicateMatch(BaseModel):
+    id: str
+    title: str
+    category: str
+    severity: str
+    status: str
+    address: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    source: str
+
+
+class DuplicateScanOut(BaseModel):
+    matches: list[DuplicateMatch]
+
+
 class UserOut(BaseModel):
     id: int
     email: str
@@ -57,7 +73,7 @@ class AuthResponse(BaseModel):
 class ReportIn(BaseModel):
     title: str = Field(min_length=3, max_length=120)
     category: str = Field(min_length=1, max_length=60)
-    description: str = Field(min_length=10, max_length=2000)
+    description: Optional[str] = Field(default=None, max_length=2000)
     address: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
@@ -94,6 +110,93 @@ class IncidentOut(BaseModel):
 
 class IncidentStatusUpdate(BaseModel):
     status: str
+
+
+class QueueItemOut(BaseModel):
+    """A normalized authority-queue entry (incident or citizen report)."""
+
+    id: str
+    source: str
+    title: str
+    category: str
+    description: str = ""
+    address: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    image_url: Optional[str] = None
+    severity: str = "MEDIUM"
+    status: str
+    reporter_email: Optional[str] = None
+    created_at: str
+
+
+class AgentClassificationOut(BaseModel):
+    category: str
+    label: str
+    confidence: Optional[float] = None
+    severity: str
+    is_issue: bool
+    confidence_good: bool
+    reasoning: str
+
+
+class AgentDuplicateMatchOut(BaseModel):
+    id: str
+    title: str
+    category: str
+    severity: str
+    status: str
+    source: str
+    address: Optional[str] = None
+    distance_m: Optional[float] = None
+
+
+class AgentDuplicationOut(BaseModel):
+    is_duplicate: bool
+    matches: list[AgentDuplicateMatchOut] = []
+    reasoning: str = ""
+
+
+class AgentRoutingOut(BaseModel):
+    department: str
+    subdepartment: Optional[str] = None
+    priority: str
+    reasoning: str = ""
+
+
+class AgentSummaryOut(BaseModel):
+    summary: str
+    key_points: list[str] = []
+    recommended_action: str = ""
+
+
+class AnalyzeAccepted(BaseModel):
+    """Immediate response after queuing the agent pipeline (runs in background)."""
+
+    session_id: str
+    status: str = "running"
+    image_url: Optional[str] = None
+
+
+class AnalyzeOut(BaseModel):
+    session_id: str
+    image_url: Optional[str] = None
+    classification: AgentClassificationOut
+    duplication: AgentDuplicationOut
+    routing: AgentRoutingOut
+    summary: AgentSummaryOut
+    errors: list[str] = []
+
+
+class SessionStepOut(BaseModel):
+    step: str
+    payload: dict
+
+
+class AgentSessionOut(BaseModel):
+    session_id: str
+    status: str = "unknown"
+    steps: list[SessionStepOut]
 
 
 class ApiError(BaseModel):

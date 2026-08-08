@@ -6,3 +6,8 @@ email-validator
 python-dotenv
 ultralytics
 pillow
+langchain
+langgraph
+langchain-ollama
+langchain-openai
+chromadb

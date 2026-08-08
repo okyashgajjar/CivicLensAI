@@ -35,10 +35,18 @@ export const ReportQueueCard: React.FC<ReportQueueCardProps> = ({ item, onAdvanc
       <div className="flex flex-col flex-1 gap-2">
         <div className="flex justify-between items-start gap-2">
           <div>
-            <span className="inline-flex items-center gap-1 bg-surface-variant text-primary px-2 py-1 rounded font-label-sm text-label-sm">
-              <Icon name="auto_awesome" className="text-[14px]" />
-              AI Verified
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 bg-surface-variant text-primary px-2 py-1 rounded font-label-sm text-label-sm">
+                <Icon name="auto_awesome" className="text-[14px]" />
+                AI Verified
+              </span>
+              {item.source === 'report' ? (
+                <span className="inline-flex items-center gap-1 bg-secondary-container text-on-secondary-container px-2 py-1 rounded font-label-sm text-label-sm">
+                  <Icon name="person" className="text-[14px]" />
+                  Citizen Report
+                </span>
+              ) : null}
+            </div>
             <h3 className="font-title-md text-title-md text-on-surface mt-1">{item.type}</h3>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">

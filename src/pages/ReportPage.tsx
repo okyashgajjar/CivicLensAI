@@ -8,6 +8,7 @@ import { LocationSection } from '../components/report/LocationSection';
 import { CategorySection } from '../components/report/CategorySection';
 import { useDuplicateScan } from '../hooks/useDuplicateScan';
 import { useReportForm } from '../hooks/useReportForm';
+import { detectionCategoryId } from '../utils/detection';
 import type { ReportDraft } from '../types/report';
 import type { ApiDetection } from '../api/client';
 
@@ -20,12 +21,20 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
   const { form, categoryLabel, setAddress, selectCategory, setDescription, setPhoto, setCoordinates } =
     useReportForm('road');
   const [detection, setDetection] = useState<ApiDetection | null>(null);
-  const ready =
-    Boolean(form.photoUrl) && form.description.trim().length > 0 && form.address.trim().length > 0;
-  const { progress, complete } = useDuplicateScan(ready);
   const coordinates = {
     lat: form.lat ?? 23.0225,
     lng: form.lng ?? 72.5714,
+  };
+  const { progress, complete, matches, error } = useDuplicateScan({
+    ready: Boolean(form.photoUrl),
+    lat: coordinates.lat,
+    lng: coordinates.lng,
+  });
+
+  const handleDetection = (next: ApiDetection | null) => {
+    setDetection(next);
+    const categoryId = detectionCategoryId(next);
+    if (categoryId) selectCategory(categoryId);
   };
 
   const handleSubmit = () => {
@@ -39,6 +48,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
       lng: form.lng,
       imageUrl: form.photoUrl,
       detection,
+      duplicates: [...matches],
     };
     navigate('/report/review', { state: { draft } });
   };
@@ -61,8 +71,14 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
           </p>
         </div>
 
-        <PhotoUpload imageUrl={form.photoUrl} onPhotoChange={setPhoto} onDetection={setDetection} />
-        <DuplicateDetectionPanel ready={ready} progress={progress} complete={complete} />
+        <PhotoUpload imageUrl={form.photoUrl} onPhotoChange={setPhoto} onDetection={handleDetection} />
+        <DuplicateDetectionPanel
+          ready={Boolean(form.photoUrl)}
+          progress={progress}
+          complete={complete}
+          matches={matches}
+          error={error}
+        />
         <LocationSection
           address={form.address}
           onAddressChange={setAddress}
@@ -74,6 +90,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
           onSelect={selectCategory}
           description={form.description}
           onDescriptionChange={setDescription}
+          aiSuggestedId={detectionCategoryId(detection)}
         />
       </main>
 

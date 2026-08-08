@@ -29,8 +29,29 @@ export const LocationSection: React.FC<LocationSectionProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const lookupSeqRef = useRef(0);
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+
+  const lookupAddress = async (lat: number, lng: number) => {
+    const seq = ++lookupSeqRef.current;
+    setLookingUp(true);
+    setLookupError(null);
+    try {
+      const displayName = await reverseGeocode(lat, lng);
+      if (seq === lookupSeqRef.current) {
+        onAddressChange(displayName);
+      }
+    } catch {
+      if (seq === lookupSeqRef.current) {
+        setLookupError('Could not look up this location. Please type the address.');
+      }
+    } finally {
+      if (seq === lookupSeqRef.current) {
+        setLookingUp(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -50,14 +71,17 @@ export const LocationSection: React.FC<LocationSectionProps> = ({
       const { lat, lng } = event.latlng;
       marker.setLatLng([lat, lng]);
       onCoordinatesChange({ lat, lng });
+      void lookupAddress(lat, lng);
     });
     marker.on('dragend', () => {
       const position = marker.getLatLng();
       onCoordinatesChange({ lat: position.lat, lng: position.lng });
+      void lookupAddress(position.lat, position.lng);
     });
 
     const timer = window.setTimeout(() => map.invalidateSize(), 200);
     return () => {
+      lookupSeqRef.current += 1;
       window.clearTimeout(timer);
       map.remove();
       mapRef.current = null;
@@ -75,7 +99,9 @@ export const LocationSection: React.FC<LocationSectionProps> = ({
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        onCoordinatesChange({ lat: position.coords.latitude, lng: position.coords.longitude });
+        const { latitude, longitude } = position.coords;
+        onCoordinatesChange({ lat: latitude, lng: longitude });
+        void lookupAddress(latitude, longitude);
       },
       () => {
         // Geolocation unavailable or denied: keep current coordinates.
@@ -88,17 +114,7 @@ export const LocationSection: React.FC<LocationSectionProps> = ({
   };
 
   const getAddressFromMap = async () => {
-    if (lookingUp) return;
-    setLookingUp(true);
-    setLookupError(null);
-    try {
-      const displayName = await reverseGeocode(coordinates.lat, coordinates.lng);
-      onAddressChange(displayName);
-    } catch {
-      setLookupError('Could not look up this location. Please type the address.');
-    } finally {
-      setLookingUp(false);
-    }
+    await lookupAddress(coordinates.lat, coordinates.lng);
   };
 
   return (

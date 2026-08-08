@@ -1,13 +1,15 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ImagePreview } from '../components/review/ImagePreview';
 import { AiAssessment } from '../components/review/AiAssessment';
 import { DuplicateAlert } from '../components/review/DuplicateAlert';
+import { SeverityVotes } from '../components/review/SeverityVotes';
+import { AgentAnalysis } from '../components/review/AgentAnalysis';
 import { ReviewActionBar } from '../components/review/ReviewActionBar';
 import { useReports, toActiveReport } from '../context/ReportsContext';
 import { useNotifications } from '../context/NotificationsContext';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, type ApiAgentAnalysis } from '../api/client';
 import type { ReportDraft } from '../types/report';
 
 interface ReviewPageProps {
@@ -22,6 +24,39 @@ export const ReviewPage: React.FC<ReviewPageProps> = () => {
   const { addNotification } = useNotifications();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [agentAnalysis, setAgentAnalysis] = useState<ApiAgentAnalysis | null>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!draft) return;
+    let cancelled = false;
+    setAgentLoading(true);
+    setAgentError(null);
+    api
+      .analyzeReport({
+        lat: draft.lat ?? 23.0225,
+        lng: draft.lng ?? 72.5714,
+        category: draft.category,
+        location: draft.address,
+        description: draft.description,
+        imageUrl: draft.imageUrl,
+      })
+      .then((result) => {
+        if (cancelled) return;
+        setAgentAnalysis(result);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAgentError(error instanceof ApiError ? error.message : 'Could not run agent analysis');
+      })
+      .finally(() => {
+        if (!cancelled) setAgentLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [draft]);
 
   const handleConfirm = async () => {
     if (!draft || submitting) return;
@@ -99,7 +134,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = () => {
       <main className="flex-1 overflow-y-auto px-margin-mobile py-6 space-y-6 pb-40">
         <ImagePreview imageUrl={draft.imageUrl} />
         <AiAssessment detection={draft.detection} />
-        <DuplicateAlert />
+        <DuplicateAlert duplicates={draft.duplicates ?? []} />
+        <SeverityVotes detection={draft.detection} duplicates={draft.duplicates ?? []} />
+        <AgentAnalysis loading={agentLoading} analysis={agentAnalysis} error={agentError} />
 
         <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/30 p-gutter">
           <h2 className="font-title-md text-title-md text-on-surface mb-3">Report Summary</h2>

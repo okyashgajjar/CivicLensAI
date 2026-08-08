@@ -6,6 +6,7 @@ interface CategorySectionProps {
   readonly onSelect: (id: string) => void;
   readonly description: string;
   readonly onDescriptionChange: (value: string) => void;
+  readonly aiSuggestedId?: string | null;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -13,6 +14,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onSelect,
   description,
   onDescriptionChange,
+  aiSuggestedId,
 }) => {
   return (
     <section className="bg-surface-container-lowest rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.05)] p-gutter border border-outline-variant/30 flex flex-col gap-6">
@@ -24,12 +26,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         <div className="flex flex-wrap gap-2">
           {ISSUE_CATEGORIES.map((category) => {
             const selected = category.id === selectedId;
+            const aiSuggested = category.id === aiSuggestedId;
             return (
               <button
                 key={category.id}
                 type="button"
                 onClick={() => onSelect(category.id)}
-                className={`px-4 py-2 rounded-full border font-label-sm text-label-sm flex items-center gap-1 transition-colors ${
+                className={`px-4 py-2 rounded-full border font-label-sm text-label-sm flex items-center gap-1.5 transition-colors ${
                   selected
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-outline-variant bg-surface text-on-surface-variant hover:bg-surface-container-low'
@@ -37,6 +40,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               >
                 {category.icon ? <Icon name={category.icon} className="text-[16px]" /> : null}
                 {category.label}
+                {aiSuggested ? (
+                  <span className="px-1.5 py-0.5 rounded bg-primary/15 text-primary font-bold text-[10px] uppercase tracking-wide">
+                    AI
+                  </span>
+                ) : null}
               </button>
             );
           })}

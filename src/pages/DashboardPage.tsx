@@ -8,8 +8,8 @@ import { IncidentMap } from '../components/dashboard/IncidentMap';
 import { ProcessingStatus } from '../components/dashboard/ProcessingStatus';
 import { CREW_BY_DEPARTMENT, type QueueItem, type QueueStatus, type SeverityLevel } from '../data/mockData';
 import { useNotifications } from '../context/NotificationsContext';
-import { useIncidents, updateIncidentStatus } from '../hooks/useIncidents';
-import type { ApiIncident } from '../api/client';
+import { useQueue, updateQueueStatus } from '../hooks/useQueue';
+import type { ApiQueueItem } from '../api/client';
 
 const TABS = ['Pending', 'Assigned', 'Resolved'] as const;
 
@@ -20,9 +20,9 @@ const nextStatus: Record<QueueStatus, QueueStatus> = {
 };
 
 const STATUS_MAP: Record<string, QueueStatus> = {
-  Open: 'Pending',
-  'In Progress': 'Assigned',
-  Resolved: 'Resolved',
+  pending: 'Pending',
+  in_progress: 'Assigned',
+  resolved: 'Resolved',
 };
 
 const DEPARTMENT_BY_CATEGORY: Record<string, string> = {
@@ -39,20 +39,22 @@ interface DashboardPageProps {
 }
 
 function toQueueItem(
-  incident: ApiIncident,
+  item: ApiQueueItem,
   assignment: { department: string; crew: string } | undefined,
 ): QueueItem {
-  const status = STATUS_MAP[incident.status] ?? 'Pending';
-  const department = assignment?.department ?? DEPARTMENT_BY_CATEGORY[incident.category] ?? 'Roads & Infrastructure';
+  const status = STATUS_MAP[item.status] ?? 'Pending';
+  const department = assignment?.department ?? DEPARTMENT_BY_CATEGORY[item.category] ?? 'Roads & Infrastructure';
   const crew = assignment?.crew ?? CREW_BY_DEPARTMENT[department]?.[0] ?? 'Crew A';
   return {
-    id: String(incident.id),
-    type: incident.title,
-    title: incident.title,
-    address: `${incident.lat.toFixed(4)}, ${incident.lng.toFixed(4)}`,
-    severity: incident.severity as SeverityLevel,
-    aiSummary: incident.description,
-    imageUrl: incident.image_url ?? '',
+    id: item.id,
+    source: item.source,
+    type: item.title,
+    title: item.title,
+    address:
+      item.address ?? `${item.lat != null ? item.lat.toFixed(4) : '—'}, ${item.lng != null ? item.lng.toFixed(4) : '—'}`,
+    severity: item.severity as SeverityLevel,
+    aiSummary: item.description,
+    imageUrl: item.image_url ?? '',
     status,
     assignedTo: status === 'Assigned' ? department : undefined,
     assignedCrew: status === 'Assigned' ? crew : undefined,
@@ -60,15 +62,15 @@ function toQueueItem(
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = () => {
-  const { incidents, status, refetch } = useIncidents();
+  const { items, status, refetch } = useQueue();
   const [assignments, setAssignments] = useState<Record<string, { department: string; crew: string }>>({});
   const [activeTab, setActiveTab] = useState<QueueStatus>('Pending');
   const [assigningItem, setAssigningItem] = useState<QueueItem | null>(null);
   const { addNotification } = useNotifications();
 
   const queue = useMemo(
-    () => incidents.map((incident) => toQueueItem(incident, assignments[String(incident.id)])),
-    [incidents, assignments],
+    () => items.map((item) => toQueueItem(item, assignments[item.id])),
+    [items, assignments],
   );
 
   const visibleItems = queue.filter((item) => item.status === activeTab);
@@ -90,13 +92,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = () => {
         return rest;
       });
     }
-    await updateIncidentStatus(Number(id), backendStatus);
+    await updateQueueStatus(item.source ?? 'incident', item.id, backendStatus);
   };
 
   const handleAssign = async (department: string, crew: string) => {
     if (!assigningItem) return;
     setAssignments((prev) => ({ ...prev, [assigningItem.id]: { department, crew } }));
-    await updateIncidentStatus(Number(assigningItem.id), 'In Progress');
+    await updateQueueStatus(assigningItem.source ?? 'incident', assigningItem.id, 'In Progress');
     addNotification({
       title: 'Report assigned to crew',
       body: `Your '${assigningItem.title}' report was assigned to ${department} (${crew}).`,

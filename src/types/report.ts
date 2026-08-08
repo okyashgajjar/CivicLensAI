@@ -6,6 +6,18 @@ export interface ReportDetection {
   readonly is_issue: boolean;
 }
 
+export interface ReportDuplicate {
+  readonly id: string;
+  readonly title: string;
+  readonly category: string;
+  readonly severity: string;
+  readonly status: string;
+  readonly address: string | null;
+  readonly lat: number | null;
+  readonly lng: number | null;
+  readonly source: 'incident' | 'report';
+}
+
 export interface ReportDraft {
   readonly title: string;
   readonly categoryId: string;
@@ -16,4 +28,5 @@ export interface ReportDraft {
   readonly lng: number | null;
   readonly imageUrl: string | null;
   readonly detection: ReportDetection | null;
+  readonly duplicates: readonly ReportDuplicate[];
 }

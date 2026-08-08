@@ -249,7 +249,7 @@ def create_report(data: dict, reporter_email: str) -> dict:
                 report_id,
                 data["title"],
                 data["category"],
-                data["description"],
+                data.get("description") or "",
                 data.get("address"),
                 data.get("lat"),
                 data.get("lng"),
@@ -281,6 +281,71 @@ def list_incidents() -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def find_duplicate_issues(lat: float, lng: float, radius_m: float = 25.0) -> list[dict]:
+    """Return open issues (incidents + pending citizen reports) at the same location.
+
+    ``radius_m`` keeps the match intentionally tight so only issues at the exact
+    same spot are treated as duplicates (street-level tolerance).
+    """
+    with get_connection() as conn:
+        incidents = conn.execute("SELECT * FROM incidents WHERE status != 'Resolved'").fetchall()
+        reports = conn.execute(
+            "SELECT * FROM reports WHERE status = 'pending' AND lat IS NOT NULL AND lng IS NOT NULL"
+        ).fetchall()
+
+    results: list[dict] = []
+    for row in incidents:
+        inc = dict(row)
+        if _distance_m(lat, lng, inc["lat"], inc["lng"]) <= radius_m:
+            results.append(
+                {
+                    "id": str(inc["id"]),
+                    "title": inc["title"],
+                    "category": inc["category"],
+                    "severity": inc["severity"],
+                    "status": inc["status"],
+                    "address": inc.get("description"),
+                    "lat": inc["lat"],
+                    "lng": inc["lng"],
+                    "source": "incident",
+                }
+            )
+    for row in reports:
+        rep = dict(row)
+        if _distance_m(lat, lng, rep["lat"], rep["lng"]) <= radius_m:
+            results.append(
+                {
+                    "id": rep["id"],
+                    "title": rep["title"],
+                    "category": rep["category"],
+                    "severity": "MEDIUM",
+                    "status": rep["status"],
+                    "address": rep.get("address"),
+                    "lat": rep["lat"],
+                    "lng": rep["lng"],
+                    "source": "report",
+                }
+            )
+    return results
+
+
+def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Approximate great-circle distance in meters (Haversine)."""
+    import math
+
+    radius = 6371000.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+    return 2 * radius * math.asin(math.sqrt(a))
+
+
+def haversine_distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Public wrapper around the Haversine distance in meters."""
+    return _distance_m(lat1, lng1, lat2, lng2)
+
+
 def update_incident_status(incident_id: int, status: str) -> dict | None:
     with get_connection() as conn:
         cur = conn.execute(
@@ -291,3 +356,93 @@ def update_incident_status(incident_id: int, status: str) -> dict | None:
             return None
         row = conn.execute("SELECT * FROM incidents WHERE id = ?", (incident_id,)).fetchone()
         return dict(row) if row else None
+
+
+def _normalize_queue_status(status: str) -> str:
+    """Map a raw status to the queue vocabulary: pending / in_progress / resolved."""
+    s = status.strip().lower().replace(" ", "_").replace("-", "_")
+    if s in ("open", "pending"):
+        return "pending"
+    if s in ("in_progress", "inprogress", "assigned"):
+        return "in_progress"
+    if s in ("resolved", "closed", "done"):
+        return "resolved"
+    return "pending"
+
+
+def _queue_item_from_incident(inc: dict) -> dict:
+    return {
+        "id": str(inc["id"]),
+        "source": "incident",
+        "title": inc["title"],
+        "category": inc["category"],
+        "description": inc.get("description") or "",
+        "address": None,
+        "lat": inc["lat"],
+        "lng": inc["lng"],
+        "image_url": inc.get("image_url"),
+        "severity": inc.get("severity", "MEDIUM"),
+        "status": _normalize_queue_status(inc["status"]),
+        "reporter_email": None,
+        "created_at": inc["updated_at"],
+    }
+
+
+def _queue_item_from_report(rep: dict) -> dict:
+    return {
+        "id": rep["id"],
+        "source": "report",
+        "title": rep["title"],
+        "category": rep["category"],
+        "description": rep.get("description") or "",
+        "address": rep.get("address"),
+        "lat": rep.get("lat"),
+        "lng": rep.get("lng"),
+        "image_url": rep.get("image_url"),
+        "severity": "MEDIUM",
+        "status": _normalize_queue_status(rep.get("status", "pending")),
+        "reporter_email": rep.get("reporter_email"),
+        "created_at": rep["created_at"],
+    }
+
+
+def list_queue_items() -> list[dict]:
+    """Merged authority feed: live incidents + citizen-submitted reports."""
+    items = [_queue_item_from_incident(i) for i in list_incidents()]
+    items.extend(_queue_item_from_report(r) for r in list_reports(None))
+    items.sort(key=lambda item: item["created_at"], reverse=True)
+    return items
+
+
+def update_report_status(report_id: str, status: str) -> dict | None:
+    """Advance a citizen report's status, appending to its event timeline."""
+    normalized = _normalize_queue_status(status)
+    now = _now()
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+        if row is None:
+            return None
+        events = json.loads(row["events"] or "[]")
+        events.append({"status": normalized, "timestamp": now})
+        conn.execute(
+            "UPDATE reports SET status = ?, events = ? WHERE id = ?",
+            (normalized, json.dumps(events), report_id),
+        )
+        updated = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+        return dict(updated) if updated else None
+
+
+def update_queue_item_status(source: str, item_id: str, status: str) -> dict | None:
+    """Advance a queue item (incident or citizen report) to a new status."""
+    if source == "incident":
+        incident_status = {
+            "pending": "Open",
+            "in_progress": "In Progress",
+            "resolved": "Resolved",
+        }[_normalize_queue_status(status)]
+        row = update_incident_status(int(item_id), incident_status)
+        return _queue_item_from_incident(row) if row else None
+    if source == "report":
+        row = update_report_status(item_id, status)
+        return _queue_item_from_report(row) if row else None
+    return None
