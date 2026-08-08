@@ -14,7 +14,7 @@ export function getNavItems(role: Role | null): readonly NavItem[] {
         { to: '/profile', label: 'Profile', icon: 'person' },
       ]
     : [
-        { to: '/', label: 'Home', icon: 'home' },
+        { to: '/home', label: 'Home', icon: 'home' },
         { to: '/reports', label: 'My Reports', icon: 'analytics' },
         { to: '/profile', label: 'Profile', icon: 'person' },
       ];

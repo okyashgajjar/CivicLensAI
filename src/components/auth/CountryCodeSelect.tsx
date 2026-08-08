@@ -12,8 +12,6 @@ export const CountryCodeSelect: React.FC<CountryCodeSelectProps> = ({ value, onC
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const selected = COUNTRY_CODES.find((entry) => entry.code === value) ?? COUNTRY_CODES[0];
-
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (event: MouseEvent) => {
@@ -34,18 +32,31 @@ export const CountryCodeSelect: React.FC<CountryCodeSelectProps> = ({ value, onC
 
   return (
     <div ref={rootRef} className="relative w-36 shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={`w-full flex items-center justify-between gap-1 bg-surface border rounded-lg py-3 px-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow ${
-          error ? 'border-error' : 'border-outline-variant'
-        }`}
-      >
-        <span className="truncate">{selected.code}</span>
-        <Icon name={open ? 'expand_less' : 'expand_more'} className="text-[18px] text-on-surface-variant" />
-      </button>
+      <div className="relative">
+        <input
+          type="tel"
+          inputMode="tel"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder="+1"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label="Country code"
+          className={`w-full bg-surface border rounded-lg py-3 pl-3 pr-9 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow placeholder:text-on-surface-variant/50 ${
+            error ? 'border-error' : 'border-outline-variant'
+          }`}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setOpen((prev) => !prev)}
+          aria-label="Select country code"
+          className="absolute right-0 top-0 bottom-0 px-2 flex items-center text-on-surface-variant hover:text-primary transition-colors"
+        >
+          <Icon name={open ? 'expand_less' : 'expand_more'} className="text-[18px]" />
+        </button>
+      </div>
       {open ? (
         <ul
           role="listbox"

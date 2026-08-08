@@ -16,7 +16,7 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({ children, role }) => {
   }
 
   if (role && currentRole !== role) {
-    return <Navigate to={currentRole === 'authority' ? '/admin' : '/'} replace />;
+    return <Navigate to={currentRole === 'authority' ? '/admin' : '/home'} replace />;
   }
 
   return <>{children}</>;

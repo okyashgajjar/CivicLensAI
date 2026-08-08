@@ -15,7 +15,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = () => {
   const { unreadCount } = useNotifications();
   const navItems = getNavItems(role);
   const isActive = (to: string) => location.pathname === to;
-  const home = role === 'authority' ? '/admin' : '/';
+  const home = role === 'authority' ? '/admin' : '/home';
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center px-margin-mobile md:px-margin-desktop py-2 md:py-4 bg-surface shadow-sm h-16 md:h-20">

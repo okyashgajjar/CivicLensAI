@@ -60,7 +60,7 @@ export const ReportPage: React.FC<ReportPageProps> = () => {
         <div className="mb-2">
           <button
             className="flex items-center gap-2 text-on-surface-variant mb-2"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/home')}
           >
             <Icon name="arrow_back" className="text-[18px]" />
             <span className="font-label-sm text-label-sm uppercase tracking-wider cursor-pointer">Cancel Report</span>

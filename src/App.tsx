@@ -1,4 +1,11 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
+import { LandingPage } from './pages/LandingPage';
+import { FeaturesPage } from './pages/FeaturesPage';
+import { PlatformPage } from './pages/PlatformPage';
+import { MobileAppPage } from './pages/MobileAppPage';
+import { AboutPage } from './pages/AboutPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { ContactPage } from './pages/ContactPage';
 import { HomePage } from './pages/HomePage';
 import { ReportPage } from './pages/ReportPage';
 import { AgentProcessingPage } from './pages/AgentProcessingPage';
@@ -26,8 +33,15 @@ export const App: React.FC<AppProps> = () => {
           <HashRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/platform" element={<PlatformPage />} />
+              <Route path="/mobile-app" element={<MobileAppPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route
-                path="/"
+                path="/home"
                 element={
                   <RequireAuth role="user">
                     <HomePage />

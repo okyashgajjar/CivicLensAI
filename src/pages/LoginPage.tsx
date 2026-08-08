@@ -40,7 +40,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     submitReset,
   } = useLoginForm();
 
-  const homeFor = (nextRole: Role): string => (nextRole === 'authority' ? '/admin' : '/');
+  const homeFor = (nextRole: Role): string => (nextRole === 'authority' ? '/admin' : '/home');
   const fullPhone = `${countryCode}${phone}`;
 
   const handleSelectRole = (nextRole: Role) => {
@@ -303,7 +303,9 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 ) : null}
                 <div className="flex flex-col gap-1">
                   <div className="flex gap-2">
-                    <CountryCodeSelect value={countryCode} onChange={setCountryCode} error={Boolean(errors.phone)} />
+                    <div className="mt-5 shrink-0">
+                      <CountryCodeSelect value={countryCode} onChange={setCountryCode} error={Boolean(errors.phone)} />
+                    </div>
                     <div className="flex-1">
                       <TextField
                         id="phone"

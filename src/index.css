@@ -24,6 +24,7 @@
   --color-tertiary-container: #4e5153;
   --color-secondary-container: #fe6b00;
   --color-primary-fixed: #dbe1ff;
+  --color-primary-fixed-variant: #003ea6;
   --color-on-primary-fixed: #00174a;
   --color-tertiary-fixed-dim: #c4c7c9;
   --color-outline-variant: #c3c6d6;
@@ -150,4 +151,49 @@ body {
 }
 .ai-pulse-fx {
   animation: subtle-pulse 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-item {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 1s cubic-bezier(0.25, 1, 0.5, 1),
+      transform 1s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .reveal-item.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .delay-100 {
+    transition-delay: 150ms;
+  }
+  .delay-200 {
+    transition-delay: 300ms;
+  }
+  .delay-300 {
+    transition-delay: 450ms;
+  }
+  .delay-400 {
+    transition-delay: 600ms;
+  }
+
+  .hero-glow {
+    animation: subtle-glow 4s infinite alternate;
+  }
+  @keyframes subtle-glow {
+    0% {
+      box-shadow: 0 10px 30px -10px rgba(0, 50, 138, 0.15);
+    }
+    100% {
+      box-shadow: 0 15px 40px -10px rgba(0, 50, 138, 0.3);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-item {
+    opacity: 1;
+    transform: none;
+  }
 }
