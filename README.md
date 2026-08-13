@@ -550,5 +550,3 @@ All variables are read from `backend/.env` (see `.env.example`). Defaults shown 
 | `npm run validate` fails on a new component      | Add an `interface XxxProps` (ending in `Props`) and avoid hardcoded hex colors in `className`. |
 
 </details>
-#   C i v i c L e n s A I  
- 
